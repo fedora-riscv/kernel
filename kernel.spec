@@ -132,7 +132,7 @@ Summary: The Linux kernel
 # This is needed to do merge window version magic
 %define patchlevel 1
 # This allows pkg_release to have configurable %%{?dist} tag
-%define specrelease 200%{?buildid}%{?dist}
+%define specrelease 200%{?buildid}.rv64%{?dist}
 # This defines the kabi tarball version
 %define kabiversion 6.1.12
 
@@ -482,6 +482,14 @@ Summary: The Linux kernel
 %define kernel_image arch/arm64/boot/Image.gz
 %endif
 
+%ifarch riscv64
+%define all_arch_configs kernel-%{version}-riscv64*.config
+%define asmarch riscv
+%define hdrarch riscv
+%define make_target Image.gz
+%define kernel_image arch/riscv/boot/Image.gz
+%endif
+
 # Should make listnewconfig fail if there's config options
 # printed out?
 %if %{nopatches}
@@ -563,7 +571,7 @@ Release: %{pkg_release}
 # DO NOT CHANGE THE 'ExclusiveArch' LINE TO TEMPORARILY EXCLUDE AN ARCHITECTURE BUILD.
 # SET %%nobuildarches (ABOVE) INSTEAD
 %if 0%{?fedora}
-ExclusiveArch: noarch x86_64 s390x %{arm} aarch64 ppc64le
+ExclusiveArch: noarch x86_64 s390x %{arm} aarch64 ppc64le riscv64
 %else
 ExclusiveArch: noarch i386 i686 x86_64 s390x %{arm} aarch64 ppc64le
 %endif
@@ -806,6 +814,8 @@ Source62: kernel-s390x-fedora.config
 Source63: kernel-s390x-debug-fedora.config
 Source64: kernel-x86_64-fedora.config
 Source65: kernel-x86_64-debug-fedora.config
+Source700: kernel-riscv64-fedora.config
+Source701: kernel-riscv64-debug-fedora.config
 
 Source67: filter-x86_64.sh.fedora
 Source68: filter-armv7hl.sh.fedora
@@ -813,6 +823,7 @@ Source70: filter-aarch64.sh.fedora
 Source71: filter-ppc64le.sh.fedora
 Source72: filter-s390x.sh.fedora
 Source73: filter-modules.sh.fedora
+Source702: filter-riscv64.sh.fedora
 %endif
 
 Source75: partial-kgcov-snip.config
@@ -833,11 +844,13 @@ Source201: Module.kabi_aarch64
 Source202: Module.kabi_ppc64le
 Source203: Module.kabi_s390x
 Source204: Module.kabi_x86_64
+Source205: Module.kabi_riscv64
 
 Source210: Module.kabi_dup_aarch64
 Source211: Module.kabi_dup_ppc64le
 Source212: Module.kabi_dup_s390x
 Source213: Module.kabi_dup_x86_64
+Source214: Module.kabi_dup_riscv64
 
 Source300: kernel-abi-stablelists-%{kabiversion}.tar.bz2
 Source301: kernel-kabi-dw-%{kabiversion}.tar.bz2
@@ -1676,7 +1689,7 @@ BuildKernel() {
     mkdir -p $RPM_BUILD_ROOT%{debuginfodir}/%{image_install_path}
 %endif
 
-%ifarch %{arm} aarch64
+%ifarch %{arm} aarch64 riscv64
     %{make} ARCH=$Arch dtbs INSTALL_DTBS_PATH=$RPM_BUILD_ROOT/%{image_install_path}/dtb-$KernelVer
     %{make} ARCH=$Arch dtbs_install INSTALL_DTBS_PATH=$RPM_BUILD_ROOT/%{image_install_path}/dtb-$KernelVer
     cp -r $RPM_BUILD_ROOT/%{image_install_path}/dtb-$KernelVer $RPM_BUILD_ROOT/lib/modules/$KernelVer/dtb
@@ -2518,7 +2531,7 @@ find $RPM_BUILD_ROOT/usr/include \
 
 %if %{with_cross_headers}
 %if 0%{?fedora}
-HDR_ARCH_LIST='arm arm64 powerpc s390 x86'
+HDR_ARCH_LIST='arm arm64 powerpc s390 x86 riscv64'
 %else
 HDR_ARCH_LIST='arm64 powerpc s390 x86'
 %endif
@@ -2937,7 +2950,7 @@ fi
 %endif
 
 %if %{with_kabidw_base}
-%ifarch x86_64 s390x ppc64 ppc64le aarch64
+%ifarch x86_64 s390x ppc64 ppc64le aarch64 riscv64
 %files kernel-kabidw-base-internal
 %defattr(-,root,root)
 /kabidw-base/%{_target_cpu}/*
@@ -3101,7 +3114,7 @@ fi
 %ghost /%{image_install_path}/%{?-k:%{-k*}}%{!?-k:vmlinuz}-%{KVERREL}%{?3:+%{3}}\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/.vmlinuz.hmac \
 %ghost /%{image_install_path}/.vmlinuz-%{KVERREL}%{?3:+%{3}}.hmac \
-%ifarch %{arm} aarch64\
+%ifarch %{arm} aarch64 riscv64\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/dtb \
 %ghost /%{image_install_path}/dtb-%{KVERREL}%{?3:+%{3}} \
 %endif\
@@ -3180,6 +3193,27 @@ fi
 %changelog
 * Tue Feb 14 2023 Augusto Caringi <acaringi@redhat.com> [6.1.12-0]
 - Linux v6.1.12
+
+* Thu Nov 17 2022 David Abdurachmanov <davidlt@rivosinc.com> [6.0.9-0.0.riscv64]
+- Add support for riscv64
+
+* Wed Nov 16 2022 Justin M. Forbes <jforbes@fedoraproject.org> [6.0.9-0]
+- Linux v6.0.9
+
+* Fri Nov 11 2022 Justin M. Forbes <jforbes@fedoraproject.org> [6.0.8-0]
+- PCI/PM: Always disable PTM for all devices during suspend (Mark Pearson)
+- PCI/PTM: Consolidate PTM interface declarations (Mark Pearson)
+- PCI/PTM: Reorder functions in logical order (Mark Pearson)
+- PCI/PTM: Preserve RsvdP bits in PTM Control register (Mark Pearson)
+- PCI/PTM: Move pci_ptm_info() body into its only caller (Mark Pearson)
+- PCI/PTM: Add pci_suspend_ptm() and pci_resume_ptm() (Mark Pearson)
+- PCI/PTM: Separate configuration and enable (Mark Pearson)
+- PCI/PTM: Add pci_upstream_ptm() helper (Mark Pearson)
+- PCI/PTM: Cache PTM Capability offset (Mark Pearson)
+- Turn on dln2 support (RHBZ 2110372) (Justin M. Forbes)
+- Fix up vc4 merge for Pi4 (Justin M. Forbes)
+- Linux v6.0.8
+>>>>>>> 8d1a574b5 (Add support for riscv64)
 
 * Thu Feb 09 2023 Augusto Caringi <acaringi@redhat.com> [6.1.11-0]
 - Linux v6.1.11
